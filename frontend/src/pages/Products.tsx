@@ -14,6 +14,7 @@ interface Product {
 const Products = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [newProduct, setNewProduct] = useState({
     name: '',
     sku: '',
@@ -49,6 +50,15 @@ const Products = () => {
     }
   };
 
+  const filteredProducts = products.filter((product) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      product.name.toLowerCase().includes(query) ||
+      product.sku.toLowerCase().includes(query) ||
+      product.category.toLowerCase().includes(query)
+    );
+  });
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -67,7 +77,9 @@ const Products = () => {
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
         <input 
           type="text" 
-          placeholder="Search products..." 
+          placeholder="Search products by name, SKU, or category..." 
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
@@ -85,19 +97,27 @@ const Products = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {products.map((product) => (
-              <tr key={product.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 text-sm font-medium text-gray-900">{product.name}</td>
-                <td className="px-6 py-4 text-sm text-gray-500">{product.sku}</td>
-                <td className="px-6 py-4 text-sm text-gray-500">{product.category}</td>
-                <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                  <span className={`${product.quantity < 10 ? 'text-red-600' : product.quantity < 30 ? 'text-yellow-600' : 'text-green-600'}`}>
-                    {product.quantity}
-                  </span>
+            {filteredProducts.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                  {searchQuery ? 'No products found matching your search.' : 'No products available.'}
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-500">{product.unit_of_measure}</td>
               </tr>
-            ))}
+            ) : (
+              filteredProducts.map((product) => (
+                <tr key={product.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{product.name}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{product.sku}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{product.category}</td>
+                  <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                    <span className={`${product.quantity < 10 ? 'text-red-600' : product.quantity < 30 ? 'text-yellow-600' : 'text-green-600'}`}>
+                      {product.quantity}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{product.unit_of_measure}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

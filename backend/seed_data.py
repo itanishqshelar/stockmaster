@@ -15,14 +15,20 @@ def seed_database():
             print("Database already seeded")
             return
         
-        # Create Electronics Warehouse
-        warehouse = models.Warehouse(
-            name="Electronics Warehouse",
+        # Create warehouses
+        warehouse_a = models.Warehouse(
+            name="Electronics Warehouse A",
             location="Building A - Tech District"
         )
-        db.add(warehouse)
+        warehouse_b = models.Warehouse(
+            name="Electronics Warehouse B",
+            location="Building B - Tech District"
+        )
+        db.add(warehouse_a)
+        db.add(warehouse_b)
         db.commit()
-        db.refresh(warehouse)
+        db.refresh(warehouse_a)
+        db.refresh(warehouse_b)
         
         # Sample PC Parts and Electronics
         products_data = [
@@ -101,13 +107,23 @@ def seed_database():
             db.commit()
             db.refresh(product)
             
-            # Create inventory entry
-            inventory = models.Inventory(
+            # Create inventory entries for both warehouses
+            # Split inventory between warehouse A and B
+            qty_a = item["qty"] // 2
+            qty_b = item["qty"] - qty_a
+            
+            inventory_a = models.Inventory(
                 product_id=product.id,
-                warehouse_id=warehouse.id,
-                quantity=item["qty"]
+                warehouse_id=warehouse_a.id,
+                quantity=qty_a
             )
-            db.add(inventory)
+            inventory_b = models.Inventory(
+                product_id=product.id,
+                warehouse_id=warehouse_b.id,
+                quantity=qty_b
+            )
+            db.add(inventory_a)
+            db.add(inventory_b)
         
         db.commit()
         print(f"✅ Successfully seeded database with {len(products_data)} electronics products!")
