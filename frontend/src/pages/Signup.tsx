@@ -44,7 +44,16 @@ export default function Signup() {
       alert('Account created successfully! Please login.');
       navigate('/login');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Signup failed');
+      console.error('Signup error:', err);
+      if (err.response) {
+        // Server responded with error
+        setError(err.response?.data?.detail || `Error: ${err.response.status}`);
+      } else if (err.request) {
+        // No response from server
+        setError('Cannot connect to server. Please check your connection.');
+      } else {
+        setError('Signup failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
