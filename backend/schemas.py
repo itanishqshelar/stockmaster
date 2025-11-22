@@ -1,7 +1,37 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime
 
+# User Schemas
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+    full_name: str
+    role: Optional[str] = "staff"
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserResponse(BaseModel):
+    email: str
+    full_name: str
+    role: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+    user: UserResponse
+
+class ForgotPassword(BaseModel):
+    email: EmailStr
+
+class ResetPassword(BaseModel):
+    email: EmailStr
+    otp: str
+    new_password: str
+
+# Product Schemas
 class ProductBase(BaseModel):
     name: str
     sku: str

@@ -1,14 +1,27 @@
 import React from 'react';
-import { Link, Outlet } from 'react-router-dom';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Package, ArrowRightLeft, Settings, LogOut } from 'lucide-react';
 
 const Layout = () => {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/login');
+  };
+
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
       <aside className="w-64 bg-white shadow-md">
         <div className="p-6">
           <h1 className="text-2xl font-bold text-blue-600">StockMaster</h1>
+          {user.full_name && (
+            <p className="text-sm text-gray-600 mt-2">Welcome, {user.full_name}</p>
+          )}
         </div>
         <nav className="mt-6">
           <Link to="/" className="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600">
@@ -29,7 +42,10 @@ const Layout = () => {
           </Link>
         </nav>
         <div className="absolute bottom-0 w-64 p-6 border-t">
-          <button className="flex items-center text-gray-600 hover:text-red-600">
+          <button 
+            onClick={handleLogout}
+            className="flex items-center text-gray-600 hover:text-red-600 w-full"
+          >
             <LogOut className="w-5 h-5 mr-3" />
             Logout
           </button>

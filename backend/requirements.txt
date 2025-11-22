@@ -9,3 +9,6 @@ httpx
 python-multipart
 itsdangerous
 jinja2
+python-jose[cryptography]
+passlib[bcrypt]
+email-validator

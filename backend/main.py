@@ -7,7 +7,7 @@ import os
 
 from .database import engine, Base
 from . import models
-from .routers import products, warehouses, operations
+from .routers import products, warehouses, operations, auth
 
 env_path = Path(__file__).parent / '.env'
 load_dotenv(dotenv_path=env_path)
@@ -21,15 +21,24 @@ seed_database()
 
 app = FastAPI(title="StockMaster API", description="Inventory Management System Backend")
 
-# CORS Configuration
+# Production CORS Configuration
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+# Allow both production and development URLs
 origins = [
-    "http://localhost:5173",  # Vite default port
+    FRONTEND_URL,
+    "http://localhost:5173",
+    "http://localhost:5174",
     "http://localhost:3000",
 ]
 
+# In production, you can also allow all origins (or be more specific)
+if os.getenv("ENVIRONMENT") == "production":
+    origins = ["*"]  # Or specify your Vercel domain
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins if os.getenv("ENVIRONMENT") != "production" else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -46,6 +55,7 @@ def health_check():
 # Add Session Middleware for Authlib
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY", "secret"))
 
+app.include_router(auth.router)
 app.include_router(products.router)
 app.include_router(warehouses.router)
 app.include_router(operations.router)

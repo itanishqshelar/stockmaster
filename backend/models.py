@@ -15,7 +15,11 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True)
     full_name = Column(String)
+    hashed_password = Column(String)
     role = Column(String, default="staff") # manager, staff
+    reset_otp = Column(String, nullable=True)
+    otp_expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
 
 class Warehouse(Base):
     __tablename__ = "warehouses"
