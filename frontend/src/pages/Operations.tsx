@@ -1,8 +1,28 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Package, ArrowRightLeft, TruckIcon, AlertCircle, Plus } from 'lucide-react';
+import axios from 'axios';
+import OperationModal from '../components/OperationModal';
+import { updateTransactionStatus } from '../api';
+
+const API_BASE = 'http://localhost:8000';
+
+interface Transaction {
+  id: number;
+  product_name: string;
+  warehouse_name: string;
+  transaction_type: string;
+  quantity: number;
+  reference: string;
+  notes: string | null;
+  status: string;
+  timestamp: string;
+}
 
 const Operations = () => {
   const [activeTab, setActiveTab] = useState<'receipt' | 'delivery' | 'transfer' | 'adjustment'>('receipt');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const operationTypes = [
     { id: 'receipt', label: 'Receipts', icon: Package, color: 'bg-green-100 text-green-600' },
@@ -11,11 +31,132 @@ const Operations = () => {
     { id: 'adjustment', label: 'Adjustments', icon: AlertCircle, color: 'bg-red-100 text-red-600' },
   ];
 
+  useEffect(() => {
+    fetchTransactions();
+  }, []);
+
+  const fetchTransactions = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${API_BASE}/operations/recent/`);
+      setTransactions(response.data);
+    } catch (err) {
+      console.error('Error fetching transactions:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOperationSuccess = () => {
+    fetchTransactions();
+  };
+
+  const getFilteredTransactions = () => {
+    return transactions.filter((t) => {
+      if (activeTab === 'receipt') return t.transaction_type === 'receipt';
+      if (activeTab === 'delivery') return t.transaction_type === 'delivery';
+      if (activeTab === 'transfer') return t.transaction_type === 'transfer_in' || t.transaction_type === 'transfer_out';
+      if (activeTab === 'adjustment') return t.transaction_type === 'adjustment';
+      return false;
+    });
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const getQuantityDisplay = (quantity: number, type: string) => {
+    const sign = quantity > 0 ? '+' : '';
+    let colorClass = 'text-gray-600';
+    
+    if (type === 'receipt' || type === 'transfer_in') colorClass = 'text-green-600';
+    else if (type === 'delivery' || type === 'transfer_out') colorClass = 'text-blue-600';
+    else if (type === 'adjustment') colorClass = quantity > 0 ? 'text-green-600' : 'text-red-600';
+    
+    return <span className={`${colorClass} font-semibold`}>{sign}{quantity} units</span>;
+  };
+
+  const getStatusBadge = (status: string, type: string) => {
+    // For transfers and adjustments, show static badges
+    if (type === 'transfer_in' || type === 'transfer_out') 
+      return <span className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded">Completed</span>;
+    if (type === 'adjustment') 
+      return <span className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded">Adjusted</span>;
+    
+    // For receipts and deliveries, show current status
+    const statusColors: Record<string, string> = {
+      'ORDER_PLACED': 'bg-yellow-100 text-yellow-700',
+      'IN_TRANSIT': 'bg-blue-100 text-blue-700',
+      'COMPLETED': 'bg-green-100 text-green-700',
+      'ORDER_RECEIVED': 'bg-yellow-100 text-yellow-700',
+      'SHIPPING': 'bg-blue-100 text-blue-700',
+      'SHIPPED': 'bg-green-100 text-green-700',
+    };
+    
+    const colorClass = statusColors[status] || 'bg-gray-100 text-gray-700';
+    const displayText = status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+    
+    return <span className={`px-2 py-1 text-xs ${colorClass} rounded`}>{displayText}</span>;
+  };
+
+  const handleStatusChange = async (transactionId: number, newStatus: string) => {
+    try {
+      await updateTransactionStatus(transactionId, newStatus);
+      // Refresh the transactions list
+      await fetchTransactions();
+      // Show success message
+      const transaction = transactions.find(t => t.id === transactionId);
+      if (transaction) {
+        alert(`Status updated to ${newStatus.replace(/_/g, ' ')}`);
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Failed to update status');
+    }
+  };
+
+  const renderStatusControl = (transaction: Transaction) => {
+    const { transaction_type, status, id } = transaction;
+    
+    // Only show dropdowns for receipts and deliveries
+    if (transaction_type === 'receipt') {
+      return (
+        <select
+          value={status}
+          onChange={(e) => handleStatusChange(id, e.target.value)}
+          className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="ORDER_PLACED">Order Placed</option>
+          <option value="IN_TRANSIT">In Transit</option>
+          <option value="COMPLETED">Completed</option>
+        </select>
+      );
+    } else if (transaction_type === 'delivery') {
+      return (
+        <select
+          value={status}
+          onChange={(e) => handleStatusChange(id, e.target.value)}
+          className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="ORDER_RECEIVED">Order Received</option>
+          <option value="SHIPPING">Shipping</option>
+          <option value="SHIPPED">Shipped</option>
+        </select>
+      );
+    }
+    
+    // For other types, show static badge
+    return getStatusBadge(status, transaction_type);
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-bold text-gray-800">Operations</h2>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center hover:bg-blue-700">
+        <button 
+          onClick={() => setIsModalOpen(true)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center hover:bg-blue-700"
+        >
           <Plus className="w-5 h-5 mr-2" />
           New Operation
         </button>
@@ -46,195 +187,54 @@ const Operations = () => {
         })}
       </div>
 
-      {/* Workflow Example Section */}
-      <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-6 mb-8 border border-blue-200">
-        <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-          <Package className="w-5 h-5 mr-2 text-blue-600" />
-          Example Workflow: Steel Inventory Management
-        </h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* Step 1: Receipt */}
-          <div className="bg-white rounded-lg p-4 border-l-4 border-green-500">
-            <div className="flex items-center mb-3">
-              <div className="p-2 bg-green-100 rounded-full mr-3">
-                <Package className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <div className="font-bold text-sm text-gray-700">Step 1: Receipt</div>
-                <div className="text-xs text-gray-500">Vendor Delivery</div>
-              </div>
-            </div>
-            <div className="text-sm text-gray-600 mb-2">Receive 100 kg Steel</div>
-            <div className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded">
-              Stock: <span className="font-bold">+100 kg</span>
-            </div>
-          </div>
-
-          {/* Step 2: Transfer */}
-          <div className="bg-white rounded-lg p-4 border-l-4 border-purple-500">
-            <div className="flex items-center mb-3">
-              <div className="p-2 bg-purple-100 rounded-full mr-3">
-                <ArrowRightLeft className="w-5 h-5 text-purple-600" />
-              </div>
-              <div>
-                <div className="font-bold text-sm text-gray-700">Step 2: Transfer</div>
-                <div className="text-xs text-gray-500">Internal Move</div>
-              </div>
-            </div>
-            <div className="text-sm text-gray-600 mb-2">Main Store → Production</div>
-            <div className="text-xs bg-purple-50 text-purple-700 px-2 py-1 rounded">
-              Stock: <span className="font-bold">Unchanged</span>
-            </div>
-          </div>
-
-          {/* Step 3: Delivery */}
-          <div className="bg-white rounded-lg p-4 border-l-4 border-blue-500">
-            <div className="flex items-center mb-3">
-              <div className="p-2 bg-blue-100 rounded-full mr-3">
-                <TruckIcon className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <div className="font-bold text-sm text-gray-700">Step 3: Delivery</div>
-                <div className="text-xs text-gray-500">Customer Order</div>
-              </div>
-            </div>
-            <div className="text-sm text-gray-600 mb-2">Deliver 20 kg Steel</div>
-            <div className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">
-              Stock: <span className="font-bold">-20 kg</span>
-            </div>
-          </div>
-
-          {/* Step 4: Adjustment */}
-          <div className="bg-white rounded-lg p-4 border-l-4 border-red-500">
-            <div className="flex items-center mb-3">
-              <div className="p-2 bg-red-100 rounded-full mr-3">
-                <AlertCircle className="w-5 h-5 text-red-600" />
-              </div>
-              <div>
-                <div className="font-bold text-sm text-gray-700">Step 4: Adjustment</div>
-                <div className="text-xs text-gray-500">Damage/Loss</div>
-              </div>
-            </div>
-            <div className="text-sm text-gray-600 mb-2">3 kg Steel Damaged</div>
-            <div className="text-xs bg-red-50 text-red-700 px-2 py-1 rounded">
-              Stock: <span className="font-bold">-3 kg</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 text-xs text-gray-500 flex items-center">
-          <div className="w-full h-px bg-gray-300 mr-2"></div>
-          <span className="whitespace-nowrap">All operations logged in Stock Ledger</span>
-          <div className="w-full h-px bg-gray-300 ml-2"></div>
-        </div>
-      </div>
-
       {/* Active Tab Content */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4 capitalize">
           {activeTab} Operations
         </h3>
         
-        {/* Mock Operations Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Date</th>
-                <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Product</th>
-                <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                {activeTab === 'transfer' && (
-                  <>
-                    <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">From</th>
-                    <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">To</th>
-                  </>
-                )}
-                <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {/* Mock Data */}
-              {activeTab === 'receipt' && (
-                <>
-                  <tr className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-600">Nov 22, 2025</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">Intel Core i9-14900K</td>
-                    <td className="px-4 py-3 text-sm text-green-600 font-semibold">+50 units</td>
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded">Completed</span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-blue-600 cursor-pointer">View</td>
+        {loading ? (
+          <div className="text-center py-8 text-gray-500">Loading operations...</div>
+        ) : getFilteredTransactions().length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            No {activeTab} operations found. Create one using the "New Operation" button!
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Date</th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Product</th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Warehouse</th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Quantity</th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Reference</th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {getFilteredTransactions().map((transaction) => (
+                  <tr key={transaction.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm text-gray-600">{formatDate(transaction.timestamp)}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{transaction.product_name}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{transaction.warehouse_name}</td>
+                    <td className="px-4 py-3 text-sm">{getQuantityDisplay(transaction.quantity, transaction.transaction_type)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{transaction.reference}</td>
+                    <td className="px-4 py-3">{renderStatusControl(transaction)}</td>
                   </tr>
-                  <tr className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-600">Nov 21, 2025</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">NVIDIA RTX 4090</td>
-                    <td className="px-4 py-3 text-sm text-green-600 font-semibold">+10 units</td>
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded">Completed</span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-blue-600 cursor-pointer">View</td>
-                  </tr>
-                </>
-              )}
-
-              {activeTab === 'delivery' && (
-                <>
-                  <tr className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-600">Nov 22, 2025</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">AMD Ryzen 9 7950X</td>
-                    <td className="px-4 py-3 text-sm text-blue-600 font-semibold">-15 units</td>
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded">Shipped</span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-blue-600 cursor-pointer">View</td>
-                  </tr>
-                  <tr className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-600">Nov 21, 2025</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">Samsung 990 Pro 2TB</td>
-                    <td className="px-4 py-3 text-sm text-blue-600 font-semibold">-8 units</td>
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-700 rounded">Pending</span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-blue-600 cursor-pointer">View</td>
-                  </tr>
-                </>
-              )}
-
-              {activeTab === 'transfer' && (
-                <>
-                  <tr className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-600">Nov 22, 2025</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">Corsair RM1000x 1000W</td>
-                    <td className="px-4 py-3 text-sm text-purple-600 font-semibold">25 units</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">Main Warehouse</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">Retail Store</td>
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded">Completed</span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-blue-600 cursor-pointer">View</td>
-                  </tr>
-                </>
-              )}
-
-              {activeTab === 'adjustment' && (
-                <>
-                  <tr className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-600">Nov 20, 2025</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">Thermal Paste - Arctic MX-6</td>
-                    <td className="px-4 py-3 text-sm text-red-600 font-semibold">-2 tubes</td>
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded">Damaged</span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-blue-600 cursor-pointer">View</td>
-                  </tr>
-                </>
-              )}
-            </tbody>
-          </table>
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
+
+      {/* Operation Modal */}
+      <OperationModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onSuccess={handleOperationSuccess}
+      />
     </div>
   );
 };

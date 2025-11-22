@@ -7,7 +7,7 @@ import os
 
 from .database import engine, Base
 from . import models
-from .routers import products, warehouses
+from .routers import products, warehouses, operations
 
 env_path = Path(__file__).parent / '.env'
 load_dotenv(dotenv_path=env_path)
@@ -48,3 +48,4 @@ app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY", "secret
 
 app.include_router(products.router)
 app.include_router(warehouses.router)
+app.include_router(operations.router)

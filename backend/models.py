@@ -24,6 +24,7 @@ class Warehouse(Base):
     location = Column(String)
     
     inventory = relationship("Inventory", back_populates="warehouse")
+    transactions = relationship("Transaction", back_populates="warehouse")
 
 class Product(Base):
     __tablename__ = "products"
@@ -50,11 +51,13 @@ class Transaction(Base):
     __tablename__ = "transactions"
     id = Column(Integer, primary_key=True, index=True)
     product_id = Column(Integer, ForeignKey("products.id"))
-    from_warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True)
-    to_warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True)
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True)
+    transaction_type = Column(String, index=True)  # receipt, delivery, transfer_in, transfer_out, adjustment
     quantity = Column(Float)
-    type = Column(Enum(TransactionType))
-    status = Column(String, default="DONE") # DRAFT, DONE
+    reference = Column(String, nullable=True)
+    notes = Column(String, nullable=True)
+    status = Column(String, default="ORDER_PLACED")  # For receipts: ORDER_PLACED, IN_TRANSIT, COMPLETED; For deliveries: ORDER_RECEIVED, SHIPPING, SHIPPED
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
     
     product = relationship("Product", back_populates="transactions")
+    warehouse = relationship("Warehouse")

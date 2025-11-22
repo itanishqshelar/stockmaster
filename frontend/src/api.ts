@@ -24,4 +24,36 @@ export const createWarehouse = async (warehouse: any) => {
   return response.data;
 };
 
+// Operations API
+export const createReceipt = async (receipt: any) => {
+  const response = await api.post('/operations/receipts/', receipt);
+  return response.data;
+};
+
+export const createDelivery = async (delivery: any) => {
+  const response = await api.post('/operations/deliveries/', delivery);
+  return response.data;
+};
+
+export const createTransfer = async (transfer: any) => {
+  const response = await api.post('/operations/transfers/', transfer);
+  return response.data;
+};
+
+export const createAdjustment = async (adjustment: any) => {
+  const response = await api.post('/operations/adjustments/', adjustment);
+  return response.data;
+};
+
+export const getRecentOperations = async () => {
+  const response = await api.get('/operations/recent/');
+  return response.data;
+};
+
+export const updateTransactionStatus = async (transactionId: number, status: string) => {
+  const response = await api.patch(`/operations/${transactionId}/status`, { status });
+  return response.data;
+};
+
 export default api;
+
