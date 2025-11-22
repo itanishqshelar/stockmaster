@@ -4,10 +4,14 @@ from dotenv import load_dotenv
 from pathlib import Path
 from starlette.middleware.sessions import SessionMiddleware
 import os
+import sys
 
-from .database import engine, Base
-from . import models
-from .routers import products, warehouses, operations, auth
+# Add backend directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from database import engine, Base
+import models
+from routers import products, warehouses, operations, auth
 
 env_path = Path(__file__).parent / '.env'
 load_dotenv(dotenv_path=env_path)
@@ -16,7 +20,7 @@ load_dotenv(dotenv_path=env_path)
 models.Base.metadata.create_all(bind=engine)
 
 # Seed database with sample data
-from .seed_data import seed_database
+from seed_data import seed_database
 seed_database()
 
 app = FastAPI(title="StockMaster API", description="Inventory Management System Backend")

@@ -7,15 +7,17 @@ from passlib.context import CryptContext
 import secrets
 import smtplib
 import os
+import sys
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 
 load_dotenv()
 
-from ..database import get_db
-from ..models import User
-from ..schemas import UserCreate, UserLogin, Token, ForgotPassword, ResetPassword
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from database import get_db
+from models import User
+from schemas import UserCreate, UserLogin, Token, ForgotPassword, ResetPassword
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
